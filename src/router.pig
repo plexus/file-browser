@@ -5,7 +5,7 @@
 
 (def no-inherit #{:name :get :post :put :delete})
 
-(defn flatten-routes [prefix data routes]
+(defn flatten-routes [merge-fn prefix data routes]
   (println routes)
   (cond
     (and
@@ -13,15 +13,15 @@
       (string? (first routes)))
     (let [[path ?opts] routes
           path (str prefix path)
-          data (if (dict? ?opts) (merge (apply dissoc data no-inherit) ?opts) data)]
+          data (if (dict? ?opts) (merge-with-kv merge-fn (apply dissoc data no-inherit) ?opts) data)]
       (into [[path data]]
-        (mapcat (partial flatten-routes path data))
+        (mapcat (partial flatten-routes merge-fn path data))
         (if (dict? ?opts)
           (rest (rest routes))
           (rest routes))))
 
     (vector? routes)
-    (mapcat (partial flatten-routes prefix data) routes)))
+    (mapcat (partial flatten-routes merge-fn prefix data) routes)))
 
 (defn compile-route [tree [path data]]
   (let [segments (str:split #"/" (str:subs path 1))]
@@ -39,8 +39,7 @@
           (recur
             segs
             (conj path seg)
-            (assoc-in tree (conj path seg :data) data))
-          )))))
+            (assoc-in tree (conj path seg :data) data)))))))
 
 (defn match-path [tree path]
   (let [[{:keys [data]} params]
@@ -56,22 +55,31 @@
     {:data data
      :params params}))
 
-(defn compile-routes [routes]
-  (reduce
-    compile-route
-    {}
-    (flatten-routes "" {} routes)))
+(defn compile-routes
+  ([routes]
+    (compile-routes routes nil))
+  ([routes merge-fn]
+    (reduce
+      compile-route
+      {}
+      (flatten-routes (or merge-fn (fn [k o n] n)) "" {} routes))))
 
 (def four-oh-four
   {:status 404
    :body "not found"
    :headers {"Content-Type" "text/plain"}})
 
-(defn router [routes]
-  (let [routes (compile-routes routes)]
-    (fn [{:keys [path] :as req}]
-      (let [path (if (str:ends-with? path "/") (str:subs path 0 -1) path)
-            {:keys [data params]} (match-path routes path)]
-        (if-let [f (get data (:method req))]
-          ((:handler f f) (assoc req :route-data data :path-params params))
-          four-oh-four) ))))
+(defn router
+  ([routes]
+    (router routes nil))
+  ([routes {:keys [merge-fn middleware]}]
+    (let [routes (compile-routes routes merge-fn)]
+      (fn [{:keys [path] :as req}]
+        (let [path (if (str:ends-with? path "/") (str:subs path 0 -1) path)
+              {:keys [data params]} (match-path routes path)]
+          (if-let [f (get data (:method req))]
+            (let [handler (reduce (fn [handler wrap] (wrap handler))
+                            (:handler f f)
+                            (concat middleware (:middleware data) (get-in data [(:method req) :middleware])))]
+              (handler (assoc req :route-data data :path-params params)))
+            four-oh-four) )))))
