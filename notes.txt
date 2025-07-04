@@ -1,0 +1,1 @@
+ ffmpeg -i:source.mp4 -vcodec "libx264" -b:v 2400k -acodec:aac output.mp4 
