@@ -51,6 +51,9 @@
     (string? h)
     (escape-string h)
 
+    (seq? h)
+    (apply str (map render h))
+
     (vector? h)
     (cond (fn? (first h))
       (render

@@ -78,8 +78,14 @@
         (let [path (if (str:ends-with? path "/") (str:subs path 0 -1) path)
               {:keys [data params]} (match-path routes path)]
           (if-let [f (get data (:method req))]
-            (let [handler (reduce (fn [handler wrap] (wrap handler))
+            (let [middleware (concat middleware (:middleware data) (get-in data [(:method req) :middleware]))
+                  _ (println "MIDDLEWARE" middleware)
+                  handler (reduce (fn [handler wrap]
+                                    (println "WRAP" wrap (vector? wrap))
+                                    (if (vector? wrap)
+                                      (apply (first wrap) handler (rest wrap))
+                                      (wrap handler)))
                             (:handler f f)
-                            (concat middleware (:middleware data) (get-in data [(:method req) :middleware])))]
+                            middleware)]
               (handler (assoc req :route-data data :path-params params)))
             four-oh-four) )))))
