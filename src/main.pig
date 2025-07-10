@@ -73,7 +73,7 @@
    {:color "var(--theme-color-text-secondary)"}]
   ([{:keys [dir name mtimeMs size]}]
     (let [now (js:Date.now)]
-      [foo
+      [:div
        [:div.filename {:title (str dir "/" name)} name]
        [:div.fileinfo
         (format-byte-size size)
@@ -92,7 +92,6 @@
   ([files-info]
     [:div
      [:h1 "Your Files"]
-
      [file-table files-info]]))
 
 (defn GET-index [req]
