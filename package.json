@@ -1,6 +1,7 @@
 {
 	"dependencies": {
 		"astring": "^1.9.0",
+		"chromecast-api": "^0.4.2",
 		"mime-db": "^1.54.0"
 	}
 }

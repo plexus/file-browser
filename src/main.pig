@@ -30,20 +30,24 @@
 (def root-dir "/home/arne/Downloads")
 
 (defn format-byte-size [num]
-  (let [prefixes ["" "k" "M" "G" "T" "P" "E" "Z" "B"]
-        magnitude (js:Math.floor (/ (js:Math.log10 num) 3))
-        scaled-num (/ num (js:Math.pow 1000 magnitude))]
-    (str
-      (.toLocaleString scaled-num undefined #js {:maximumFractionDigits 1})
-      " "
-      (get prefixes magnitude)
-      "B")))
+  (if (= 0 num)
+    "0 B"
+    (let [prefixes ["" "k" "M" "G" "T" "P" "E" "Z" "B"]
+          magnitude (js:Math.floor (/ (js:Math.log10 num) 3))
+          scaled-num (/ num (js:Math.pow 1000 magnitude))]
+      (str
+        (.toLocaleString scaled-num undefined #js {:maximumFractionDigits 1})
+        " "
+        (get prefixes magnitude)
+        "B"))))
 
 (defn dir->data [dir]
   (for [file (fs:readdirSync dir)]
-    (assoc (fs:statSync (path:join dir file))
-      :dir dir
-      :name file)))
+    (let [stat (fs:statSync (path:join dir file))]
+      (assoc stat
+        :dir? (.isDirectory stat)
+        :dir dir
+        :name file))))
 
 (def component-styles (box {}))
 
@@ -63,6 +67,20 @@
            (~'recur (apply tag# ch#))
            (into [(keyword (str (name tag#) "." '~name))] ch#))))))
 
+(defn root? [dir]
+  (#{"" "."} dir))
+
+(defn dir-name [dir]
+  (if (root? dir) "Your files" dir))
+
+(defn dir-path [dir]
+  (if (root? dir)
+    "/"
+    (path:join "/dir" (js:encodeURIComponent dir))))
+
+(defn file-path [f type]
+  (path:join "/file" (js:encodeURIComponent f) type))
+
 (defc file-table-entry
   {:padding "1rem 0"
    :border-bottom "1px solid var(--theme-color-separator)"}
@@ -71,34 +89,98 @@
     :font-weight "450"}]
   [:.fileinfo
    {:color "var(--theme-color-text-secondary)"}]
-  ([{:keys [dir name mtimeMs size]}]
-    (let [now (js:Date.now)]
+  ([dir {:keys [dir? name mtimeMs size] :as stat}]
+    (let [now (js:Date.now)
+          path (path:join dir name)]
       [:div
-       [:div.filename {:title (str dir "/" name)} name]
+       [:div.filename {:title path}
+        [:a {:href (if dir? (dir-path path) (file-path path "preview"))}
+         name]]
        [:div.fileinfo
         (format-byte-size size)
         " – "
         (relative-time:distance-in-words now mtimeMs) " ago"]])))
 
-(defn file-table [files]
-  (for [f files]
-    [file-table-entry f]))
+(defn file-table [dir files]
+  (if (seq files)
+    (for [f files]
+      [file-table-entry dir f])
+    [:p "No files"]))
+
+(defc page-header
+  {:margin-top "0"
+   :padding "1rem 0"
+   :border-bottom "3px solid var(--theme-color-accent)"}
+  ([& children]
+    (into [:header] children)))
 
 (defc dir-overview-page
   {:padding "0 1rem"}
-  [:h1 {:margin-top "0"
-        :padding "1rem 0"
-        :border-bottom "3px solid var(--theme-color-accent)"}]
-  ([files-info]
+  ([dir parent files-info]
     [:div
-     [:h1 "Your Files"]
-     [file-table files-info]]))
+     [page-header
+      [:h1 (dir-name dir)]
+      (when parent
+        [:a {:href (dir-path parent)} "← " (if (= "." parent) "Your Files" parent)])]
+     [file-table dir files-info]]))
+
+(defc file-preview-page
+  {:padding "0 1rem"}
+  ([file parent]
+    [:div
+     [page-header
+      [:h1 file]
+      (when parent
+        [:a {:href (dir-path parent)} "← " (if (= "." parent) "Your Files" parent)])]
+     [:a {:href (file-path file "download")} "Download"]]))
 
 (defn GET-index [req]
-  (let [files (fs:readdirSync root-dir)]
-    {:status 200
-     :head [:title "File Browser"]
-     :html [dir-overview-page (sort-by (comp - :mtimeMs) (dir->data root-dir))]}))
+  {:status 200
+   :head [:title "File Browser"]
+   :html
+   [dir-overview-page
+    "" nil
+    (sort-by
+      (comp - :mtimeMs)
+      (dir->data root-dir))]})
+
+(defn GET-directory [req]
+  (let [dir (-> req :path-params :path)
+        full-dir (path:join root-dir dir)
+        parent (path:join dir "..")]
+    (if (not (fs:existsSync full-dir))
+      {:status 404
+       :head [:title "Not found: " full-dir]
+       :body [:p "Directory not found: " full-dir]}
+      {:status 200
+       :head [:title (dir-name dir)]
+       :html
+       [dir-overview-page dir parent
+        (sort-by
+          (comp - :mtimeMs)
+          (dir->data full-dir))]})))
+
+(defn GET-preview [req]
+  (let [path (-> req :path-params :path)
+        parent (path:join path "..")
+        full-path (path:join root-dir path)]
+    (if (not (fs:existsSync full-path))
+      {:status 404
+       :head [:title "Not found: " full-path]
+       :body [:p "File not found: " full-path]}
+      {:status 200
+       :head [:title (dir-name path)]
+       :html
+       [file-preview-page path parent]})))
+
+(defn GET-download [req]
+  (let [path (-> req :path-params :path)
+        full-path (path:join root-dir path)]
+    (if (not (fs:existsSync full-path))
+      {:status 404
+       :head [:title "Not found: " full-path]
+       :body [:p "File not found: " full-path]}
+      (assets:asset-response req full-path))))
 
 (defn GET-styles [req]
   {:status 200
@@ -109,11 +191,15 @@
   [:main h])
 
 (def routes
-  [["" {:head [:<>
-               [:link {:rel "stylesheet" :href "/fonts/libre_franklin.css"}]
-               [:link {:rel "stylesheet" :href "/styles.css"}]]
+  [["" {:html-head [:<>
+                    [:link {:rel "stylesheet" :href "/fonts/libre_franklin.css"}]
+                    [:link {:rel "stylesheet" :href "/styles.css"}]]
         :layout base-layout}
     ["/" {:get #'GET-index}]
+    ["/dir/:path" {:get #'GET-directory}]
+    ["/file/:path/preview" {:get #'GET-preview}]
+    ["/file/:path/download" {:get #'GET-download
+                             :head #'GET-download}]
     ["/styles.css" {:get #'GET-styles}]]])
 
 (defn merge-data-fn [k o n]
@@ -133,8 +219,8 @@
   (let [s (http-server:create-server (assets:wrap-assets
                                        (fn [req]
                                          ((router:router routes {:merge-fn merge-data-fn
-                                                                 :middleware [html:wrap-render
-                                                                              ]}) req))
+                                                                 :middleware [html:wrap-render]})
+                                           req))
                                        {:roots ["public"]})
             opts)]
     (reset! server s)
@@ -145,13 +231,13 @@
 
 (comment
   ((router:router routes {:merge-fn merge-data-fn
-                          :middleware [wrap-render]})
+                          :middleware [html:wrap-render]})
     {:method :get
-     :path "/"})
+     :path "/file/libre-franklin-v19-latin_latin-ext.zip/download"})
 
   (router:match-path
     (router:compile-routes routes merge-data-fn)
-    "/foo/123")
+    "/file/foo.bar/preview")
 
   (http-server:stop! server)
   (http-server:start! server))

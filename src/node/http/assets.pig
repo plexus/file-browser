@@ -64,6 +64,7 @@
          :headers {"Content-Type" (media-type file)
                    "ETag" (hash (:mtime stat))
                    "Content-Length" (- end start)
+                   "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
                    "Accept-Ranges" "bytes"
                    "Content-Range" (str "bytes=" start "-" end "/" (:size stat))}
          :body stream})
@@ -85,6 +86,7 @@
               {:status 200
                :headers {"Content-Type" (media-type file)
                          "ETag" (hash (:mtime stat))
+                         "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
                          "Accept-Ranges" "bytes"}
                :body data})))))
     (.then
@@ -108,6 +110,7 @@
               {:status 200
                :headers {"Content-Type" (media-type file)
                          "ETag" (hash (:mtime stat))
+                         "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
                          "Accept-Ranges" "bytes"}
                :body data})))))
     (.then
@@ -128,13 +131,27 @@
            :headers {"Content-Type" (media-type file)
                      "ETag" (hash (:mtime stat))
                      "Content-Length" (:size stat)
-                     "Accept-Ranges" "bytes"}
-           })))
+                     "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
+                     "Accept-Ranges" "bytes"}})))
     (.then
       identity
       (fn [err]
         {:status 500
          :body (str "Error loading file: " err)}))))
+
+(defn asset-response [{:keys [method] :as req} file]
+  (cond
+    (= :head method)
+    (head-response (header req "if-none-match") file)
+
+    (and (= :get method) (header req "range"))
+    (range-response
+      (header req "if-range")
+      (header req "range")
+      file)
+
+    (= :get method)
+    (file-response (header req "if-none-match") file)))
 
 (defn wrap-assets
   "Serve static assets
@@ -149,18 +166,7 @@
                     (#{:get :head} method)
                     (str:starts-with? path prefix)
                     (find-asset roots (str:subs (:path req) (count prefix))))]
-      (cond
-        (= :head method)
-        (head-response (header req "if-none-match") file)
-
-        (and (= :get method) (header req "range"))
-        (range-response
-          (header req "if-range")
-          (header req "range")
-          file)
-
-        (= :get method)
-        (file-response (header req "if-none-match") file))
+      (asset-response req file)
       (handler req))))
 
 (comment

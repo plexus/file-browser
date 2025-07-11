@@ -119,6 +119,7 @@
   ;; TODO: when also a :body a specified, the HTML rendering should only happen when the client
   ;; asked for it (Accept: text/html), so that otherwise other middleware can do content
   ;; negotiating to render the body (collection) to an appropriate format.
+  (assert handler)
   (fn [req]
     (let [res (handler req)]
       (if (not (vector? (:html res)))
@@ -127,14 +128,14 @@
               page-layout (or (:page-layout res) (:page-layout route-data) default-page-layout)
               layouts (keep :layout [res route-data])
               head (cond-> [:<>]
-                     (:head route-data)
-                     (conj (:head route-data))
-                     (:head res)
-                     (conj (:head res)))
+                     (:html-head route-data)
+                     (conj (:html-head route-data))
+                     (:html-head res)
+                     (conj (:html-head res)))
               body (:html res)]
           (-> res
             (assoc :body (render (page-layout head (reduce (fn [acc f] (f acc)) body layouts))))
-            (assoc-in [:headers "Content-Type"] "text/html")))))))
+            (assoc-in [:html-headers "Content-Type"] "text/html")))))))
 
 (comment
   (render [:<>
