@@ -240,7 +240,9 @@
     (http-server:start! s)
     s))
 
-(start-server! {:port 9876})
+(let [port 9876]
+  (println "Starting on port" port)
+  (start-server! {:port port}))
 
 (comment
   ((router:router routes {:merge-fn merge-data-fn
