@@ -1,12 +1,12 @@
 (module main
   (:import
-    router html relative-time
+    chromecast html relative-time router
     [assets :from node/http/assets]
-    [fs :from "node:fs"]
-    [path :from "node:path"]
-    [str :from piglet:string]
     [css :from piglet:css]
-    [http-server :from piglet:node/http-server]))
+    [fs :from "node:fs"]
+    [http-server :from piglet:node/http-server]
+    [path :from "node:path"]
+    [str :from piglet:string]))
 
 (def styles
   [[":where(*)"
@@ -28,6 +28,7 @@
            :background-color "var(--theme-bg)"}]])
 
 (def root-dir "/home/arne/Downloads")
+(def origin "http://192.168.0.40")
 
 (defn format-byte-size [num]
   (if (= 0 num)
@@ -132,7 +133,9 @@
       [:h1 file]
       (when parent
         [:a {:href (dir-path parent)} "← " (if (= "." parent) "Your Files" parent)])]
-     [:a {:href (file-path file "download")} "Download"]]))
+     [:a {:href (file-path file "download")} "Download"]
+     [:form {:method "POST" :action "./cast"}
+      [:button "Play on Chromecast"]]]))
 
 (defn GET-index [req]
   {:status 200
@@ -187,6 +190,13 @@
    :headers {"Content-Type" "text/css"}
    :body (css:css (apply conj styles (vals @component-styles)))})
 
+(defn POST-cast [req]
+  (let [path (-> req :path-params :path)]
+    (chromecast:play! (str origin (file-path path "download"))))
+  {:status 302
+   :headers {"Location" "./preview"}
+   :body ""})
+
 (defn base-layout [h]
   [:main h])
 
@@ -197,9 +207,12 @@
         :layout base-layout}
     ["/" {:get #'GET-index}]
     ["/dir/:path" {:get #'GET-directory}]
-    ["/file/:path/preview" {:get #'GET-preview}]
-    ["/file/:path/download" {:get #'GET-download
-                             :head #'GET-download}]
+    ["/file/:path"
+     ["/preview" {:get #'GET-preview}]
+     ["/download" {:get #'GET-download
+                   :head #'GET-download}]
+     ["/cast" {:post #'POST-cast}]]
+
     ["/styles.css" {:get #'GET-styles}]]])
 
 (defn merge-data-fn [k o n]
