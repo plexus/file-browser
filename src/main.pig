@@ -240,7 +240,7 @@
     (http-server:start! s)
     s))
 
-(start-server! {:port 80})
+(start-server! {:port 9876})
 
 (comment
   ((router:router routes {:merge-fn merge-data-fn
