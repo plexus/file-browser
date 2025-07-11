@@ -27,8 +27,8 @@
            :margin "0 auto"
            :background-color "var(--theme-bg)"}]])
 
-(def root-dir "/home/arne/Downloads")
-(def origin "http://192.168.0.40")
+(def root-dir "/mnt/Breadbox/Cloud/PutIO")
+(def origin "http://192.168.1.40")
 
 (defn format-byte-size [num]
   (if (= 0 num)
@@ -240,7 +240,7 @@
     (http-server:start! s)
     s))
 
-(start-server! {:port 9876})
+(start-server! {:port 80})
 
 (comment
   ((router:router routes {:merge-fn merge-data-fn

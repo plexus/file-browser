@@ -6,6 +6,7 @@
 
 (defn play! [link]
   (println "CHROMECAST PLAY" link)
+  (println "DEVICES" (.-devices client))
   (let [dev (first (.-devices client))]
     (.play dev link)))
 

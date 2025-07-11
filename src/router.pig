@@ -86,5 +86,9 @@
                                       (wrap handler)))
                             (:handler f f)
                             middleware)]
-              (handler (assoc req :route-data data :path-params params)))
-            four-oh-four) )))))
+              (try
+                (handler (assoc req :route-data data :path-params params))
+                (catch e
+                  {:status 500
+                   :body (str e)})))
+            four-oh-four))))))
