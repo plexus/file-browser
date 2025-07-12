@@ -2,12 +2,14 @@
   (:import
     [ChromecastClient :from "chromecast-api"]))
 
-(def client (ChromecastClient.))
+(defn client []
+  (ChromecastClient.))
 
 (defn play! [link]
-  (println "CHROMECAST PLAY" link)
-  (println "DEVICES" (.-devices client))
-  (let [dev (first (.-devices client))]
+  (let [client (client)
+        dev (first (.-devices client))]
+    (println "CHROMECAST PLAY" link)
+    (println "DEVICE" dev)
     (.play dev link)))
 
 (comment
