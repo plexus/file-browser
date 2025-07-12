@@ -90,5 +90,7 @@
                 (handler (assoc req :route-data data :path-params params))
                 (catch e
                   {:status 500
-                   :body (str e)})))
+                   :headers {"Content-Type" "text/plain"}
+                   :body (str e "\n\n"
+                           (.-stack e))})))
             four-oh-four))))))

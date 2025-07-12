@@ -80,16 +80,14 @@
             block? (block-level tag)]
 
         (str  "<" tag (render-opts opts)
-          (if (seq children)
-            (str ">"
-              ;; Add a couple newlines so it's not just one single line of text. This is a far cry from
-              ;; actual pretty output because that requires more context-aware generation, but marginally
-              ;; easier to parse if you happen to look at the raw output.
-              (when block? (str "\n"))
-              (apply str (map render children))
-              (when block? (str "\n"))
-              "</" tag ">")
-            (str "/>")))))
+          (str ">"
+            ;; Add a couple newlines so it's not just one single line of text. This is a far cry from
+            ;; actual pretty output because that requires more context-aware generation, but marginally
+            ;; easier to parse if you happen to look at the raw output.
+            (when block? (str "\n"))
+            (apply str (map render children))
+            (when block? (str "\n"))
+            "</" tag ">"))))
 
     :else
     (str h)))

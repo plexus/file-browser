@@ -80,11 +80,11 @@
       (fn [stat]
         (if (or (not etag) (= (str (hash (:mtime stat))) etag))
           (range-response* stat range file)
-
           (.then (fsp:readFile file)
             (fn [data]
               {:status 200
                :headers {"Content-Type" (media-type file)
+                         "Content-Length" (:size stat)
                          "ETag" (hash (:mtime stat))
                          "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
                          "Accept-Ranges" "bytes"}
@@ -109,6 +109,7 @@
             (fn [data]
               {:status 200
                :headers {"Content-Type" (media-type file)
+                         "Content-Length" (:size stat)
                          "ETag" (hash (:mtime stat))
                          "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
                          "Accept-Ranges" "bytes"}

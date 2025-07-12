@@ -72,7 +72,9 @@
        (<= 43200 delta-m 525600) (pattern :x-months (js:Math.round (/ delta-m 43200)))
 
        :else
-       (let [from-year                      (cond-> (:year from) (< 2 (:month from)) inc)
+       (let [from (js:Date. from)
+             to (js:Date. to)
+             from-year                      (cond-> (:year from) (< 2 (:month from)) inc)
              to-year                        (cond-> (:year to) (< (:month from) 3) dec)
              leap-years                     (count (filter leap-year? (range from-year (inc to-year))))
              leap-year-minute-offset        (* leap-years 1440)

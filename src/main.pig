@@ -131,6 +131,9 @@
       [:h1 file]
       (when parent
         [:a {:href (dir-path parent)} "← " (if (= "." parent) "Your Files" parent)])]
+     [:video.video-js
+      {:preload "auto" :data-setup "{\"controls\": true}"}
+      [:source {:src  (file-path file "download") :type (assets:media-type file)}]]
      [:a {:href (file-path file "download")} "Download"]
      [:form {:method "POST" :action "./cast"}
       [:button "Play on Chromecast"]]]))
@@ -206,7 +209,9 @@
         :origin origin
         :html-head [:<>
                     [:link {:rel "stylesheet" :href "/fonts/libre_franklin.css"}]
-                    [:link {:rel "stylesheet" :href "/styles.css"}]]
+                    [:link {:rel "stylesheet" :href "/styles.css"}]
+                    [:link {:rel "stylesheet" :href "/videojs-8.23.3/video-js.min.css" }]
+                    [:script {:src "/videojs-8.23.3/video.min.js"}]]
         :layout base-layout}
     ["/" {:get #'GET-index}]
     ["/dir/:path" {:get #'GET-directory}]
@@ -226,6 +231,27 @@
     :else
     n))
 
+(defn wrap-log [handler]
+  (fn ^:async [req]
+    (let [res (await (handler req))]
+      (println (str:upcase (name (:method req))) (:path req) (str "[" (:status res) "]"))
+      (doseq [[k v] (:headers req)]
+        (println k v))
+      (println "----")
+      (doseq [[k v] (:headers res)]
+        (println k v))
+      res)))
+
+(defn wrap-cors [handler]
+  (fn ^:async [req]
+    (let [res (await (handler req))]
+      (update res :headers assoc
+        "access-control-allow-origin" "*"
+        "access-control-allow-credentials" "false"
+        "access-control-allow-methods" "GET, POST, OPTIONS"
+        "access-control-allow-headers" "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+        "access-control-expose-headers" "Content-Length,Content-Range,Accept-Ranges"))))
+
 (defonce server (box nil))
 
 (defn start-server! [opts]
@@ -236,7 +262,7 @@
                                          ((router:router
                                             (routes (:dir opts) (:origin opts))
                                             {:merge-fn merge-data-fn
-                                             :middleware [html:wrap-render]})
+                                             :middleware [html:wrap-render wrap-cors wrap-log]})
                                            req))
                                        {:roots ["public"]})
             opts)]
@@ -246,13 +272,11 @@
 
 (defn cmd-start!
   [{:keys [port dir origin] :as opts}]
-  (println "opts" opts)
   (println "Starting on port" port ", serving" dir "from" origin)
   (start-server! opts)
   )
 
 (defn -main [& argv]
-  (println "ARGV" argv)
   (cli:dispatch
     {:name "fogio"
      :doc "Home network file cloud"
@@ -268,6 +292,11 @@
                           :middleware [html:wrap-render]})
     {:method :get
      :path "/file/libre-franklin-v19-latin_latin-ext.zip/download"})
+
+  (start-server!
+    {:origin "http://192.168.1.18:9876"
+     :port 9876
+     :dir "/home/arne/Downloads"})
 
   (router:match-path
     (router:compile-routes routes merge-data-fn)
