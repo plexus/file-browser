@@ -2,6 +2,7 @@
   (:import
     chromecast html relative-time router
     [assets :from node/http/assets]
+    [cli :from piglet:cli/parseargs]
     [css :from piglet:css]
     [fs :from "node:fs"]
     [http-server :from piglet:node/http-server]
@@ -26,9 +27,6 @@
    [:main {:max-width "80rem"
            :margin "0 auto"
            :background-color "var(--theme-bg)"}]])
-
-(def root-dir "/mnt/Breadbox/Cloud/PutIO")
-(def origin "http://192.168.1.40")
 
 (defn format-byte-size [num]
   (if (= 0 num)
@@ -137,6 +135,9 @@
      [:form {:method "POST" :action "./cast"}
       [:button "Play on Chromecast"]]]))
 
+(defn root-dir [req] (-> req :route-data :root-dir))
+(defn origin [req] (-> req :route-data :origin))
+
 (defn GET-index [req]
   {:status 200
    :head [:title "File Browser"]
@@ -145,11 +146,11 @@
     "" nil
     (sort-by
       (comp - :mtimeMs)
-      (dir->data root-dir))]})
+      (dir->data (root-dir req)))]})
 
 (defn GET-directory [req]
   (let [dir (-> req :path-params :path)
-        full-dir (path:join root-dir dir)
+        full-dir (path:join (root-dir req) dir)
         parent (path:join dir "..")]
     (if (not (fs:existsSync full-dir))
       {:status 404
@@ -166,7 +167,7 @@
 (defn GET-preview [req]
   (let [path (-> req :path-params :path)
         parent (path:join path "..")
-        full-path (path:join root-dir path)]
+        full-path (path:join (root-dir req) path)]
     (if (not (fs:existsSync full-path))
       {:status 404
        :head [:title "Not found: " full-path]
@@ -178,7 +179,7 @@
 
 (defn GET-download [req]
   (let [path (-> req :path-params :path)
-        full-path (path:join root-dir path)]
+        full-path (path:join (root-dir req) path)]
     (if (not (fs:existsSync full-path))
       {:status 404
        :head [:title "Not found: " full-path]
@@ -192,7 +193,7 @@
 
 (defn POST-cast [req]
   (let [path (-> req :path-params :path)]
-    (chromecast:play! (str origin (file-path path "download"))))
+    (chromecast:play! (str (origin req) (file-path path "download"))))
   {:status 302
    :headers {"Location" "./preview"}
    :body ""})
@@ -200,8 +201,10 @@
 (defn base-layout [h]
   [:main h])
 
-(def routes
-  [["" {:html-head [:<>
+(defn routes [root-dir origin]
+  [["" {:root-dir root-dir
+        :origin origin
+        :html-head [:<>
                     [:link {:rel "stylesheet" :href "/fonts/libre_franklin.css"}]
                     [:link {:rel "stylesheet" :href "/styles.css"}]]
         :layout base-layout}
@@ -212,7 +215,6 @@
      ["/download" {:get #'GET-download
                    :head #'GET-download}]
      ["/cast" {:post #'POST-cast}]]
-
     ["/styles.css" {:get #'GET-styles}]]])
 
 (defn merge-data-fn [k o n]
@@ -231,8 +233,10 @@
     (http-server:stop! s))
   (let [s (http-server:create-server (assets:wrap-assets
                                        (fn [req]
-                                         ((router:router routes {:merge-fn merge-data-fn
-                                                                 :middleware [html:wrap-render]})
+                                         ((router:router
+                                            (routes (:dir opts) (:origin opts))
+                                            {:merge-fn merge-data-fn
+                                             :middleware [html:wrap-render]})
                                            req))
                                        {:roots ["public"]})
             opts)]
@@ -240,9 +244,24 @@
     (http-server:start! s)
     s))
 
-(let [port 9876]
-  (println "Starting on port" port)
-  (start-server! {:port port}))
+(defn cmd-start!
+  [{:keys [port dir origin] :as opts}]
+  (println "opts" opts)
+  (println "Starting on port" port ", serving" dir "from" origin)
+  (start-server! opts)
+  )
+
+(defn -main [& argv]
+  (println "ARGV" argv)
+  (cli:dispatch
+    {:name "fogio"
+     :doc "Home network file cloud"
+
+     :flags
+     ["-p, --port <port>" {:doc "Port to run on"}
+      "-o, --origin <origin>" {:doc "Origin for URL generation"}] :commands
+     {"start <dir>" #'cmd-start!}}
+    argv))
 
 (comment
   ((router:router routes {:merge-fn merge-data-fn
