@@ -9,6 +9,7 @@
   (println "DEVICE" dev)
   (.on dev "status" (fn [status]
                       (println "GOT STATUS" status)))
+  (set! (.-host dev) "192.168.1.5") ;; haxor... for some reason on bmo the resolution of the chromecast doesn't work correctly
   (.play dev link))
 
 (defn play! [link]
