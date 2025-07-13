@@ -5,16 +5,18 @@
 (defn client []
   (ChromecastClient.))
 
+(defn play-on-dev [dev link]
+  (println "DEVICE" dev)
+  (.on dev "status" (fn [status]
+                      (println "GOT STATUS" status)))
+  (.play dev link))
+
 (defn play! [link]
-  (let [client (client)
-        dev (first (.-devices client))]
+  (let [client (client)]
     (println "CHROMECAST PLAY" link)
-    (.on client "device"
-      (fn [dev]
-        (println "DEVICE" dev)
-        (.on dev "status" (fn [status]
-                            (println "GOT STATUS" status)))
-        (.play dev link)))))
+    (.on client "device" #(play-on-dev % link))
+    (when-let [dev (first (.-devices client))]
+      (play-on-dev dev link))))
 
 ;; (let [client (client)]
 ;;   (.on client "device"
@@ -22,6 +24,7 @@
 ;;       (.stop dev))))
 
 (comment
+  (play! "https://bmo.squid.casa/file/Cloud%2FPutIO%2FDaria%2FSeason%204%2FDaria%20-%20S04E02%20-%20Antisocial%20Climbers.mp4/download")
   (play! "http://192.168.1.18:9876/file/1506389835.mp4/download")
   (play! "https://bmo.squid.casa/file/big_buck_bunny_1080p.mp4/download")
   (play! "http://localhost:8000/1506389835.mp4")
