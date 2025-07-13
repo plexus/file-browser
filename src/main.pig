@@ -112,7 +112,7 @@
 (defc page-header
   {:margin-top "0"
    :margin-bottom "2rem"
-   :padding "1rem 0"
+   :padding "1rem 0 1rem 0"
    :border-bottom "3px solid var(--theme-color-accent)"}
   ([& children]
     (into [:header] children)))
