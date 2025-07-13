@@ -64,9 +64,8 @@
          :headers {"Content-Type" (media-type file)
                    "ETag" (hash (:mtime stat))
                    "Content-Length" (- end start)
-                   "Content-Disposition" (str "attachment; filename=\"" (path:basename file) "\"")
-                   "Accept-Ranges" "bytes"
-                   "Content-Range" (str "bytes=" start "-" end "/" (:size stat))}
+                   "Content-Disposition" (str "inline; filename=\"" (path:basename file) "\"")
+                   "Content-Range" (str "bytes " start "-" (dec end) "/" (:size stat))}
          :body stream})
       (do
         (println "WARN: got multiple ranges in a range request, " range)

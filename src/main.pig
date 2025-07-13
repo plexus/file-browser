@@ -85,7 +85,10 @@
    :border-bottom "1px solid var(--theme-color-separator)"}
   [:.filename
    {:margin-bottom "0.3rem"
-    :font-weight "450"}]
+    :font-weight "450"}
+   ["a:not(:hover)"
+    {:text-decoration "none"
+     :color "var(--theme-color-text)"}]]
   [:.fileinfo
    {:color "var(--theme-color-text-secondary)"}]
   ([dir {:keys [dir? name mtimeMs size] :as stat}]
@@ -108,6 +111,7 @@
 
 (defc page-header
   {:margin-top "0"
+   :margin-bottom "2rem"
    :padding "1rem 0"
    :border-bottom "3px solid var(--theme-color-accent)"}
   ([& children]
@@ -124,7 +128,11 @@
      [file-table dir files-info]]))
 
 (defc file-preview-page
-  {:padding "0 1rem"}
+  {:padding "0 1rem"
+   :position "relative"}
+  [#{:.video-js :video}
+   {:max-width "100%"
+    :position "relative"}]
   ([file parent]
     [:div
      [page-header
@@ -132,7 +140,7 @@
       (when parent
         [:a {:href (dir-path parent)} "← " (if (= "." parent) "Your Files" parent)])]
      [:video.video-js
-      {:preload "auto" :data-setup "{\"controls\": true}"}
+      {:preload "auto" :data-setup "{\"controls\": true, \"fluid\": true}"}
       [:source {:src  (file-path file "download") :type (assets:media-type file)}]]
      [:a {:href (file-path file "download")} "Download"]
      [:form {:method "POST" :action "./cast"}
@@ -236,21 +244,21 @@
     (let [res (await (handler req))]
       (println (str:upcase (name (:method req))) (:path req) (str "[" (:status res) "]"))
       (doseq [[k v] (:headers req)]
-        (println k v))
+        (println (str k ":") v))
       (println "----")
       (doseq [[k v] (:headers res)]
-        (println k v))
+        (println (str k ":") v))
       res)))
 
 (defn wrap-cors [handler]
   (fn ^:async [req]
     (let [res (await (handler req))]
       (update res :headers assoc
-        "access-control-allow-origin" "*"
-        "access-control-allow-credentials" "false"
-        "access-control-allow-methods" "GET, POST, OPTIONS"
-        "access-control-allow-headers" "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
-        "access-control-expose-headers" "Content-Length,Content-Range,Accept-Ranges"))))
+        "Access-Control-Allow-Origin" "*"
+        "Access-Control-Allow-Credentials" "false"
+        "Access-Control-Allow-Methods" "GET, POST, OPTIONS"
+        "Access-Control-Allow-Headers" "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+        "Access-Control-Expose-Headers" "Content-Length,Content-Range,Accept-Ranges"))))
 
 (defonce server (box nil))
 
@@ -294,7 +302,7 @@
      :path "/file/libre-franklin-v19-latin_latin-ext.zip/download"})
 
   (start-server!
-    {:origin "http://192.168.1.18:9876"
+    {:origin "https://bmo.squid.casa"
      :port 9876
      :dir "/home/arne/Downloads"})
 

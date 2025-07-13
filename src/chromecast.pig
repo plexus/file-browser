@@ -23,14 +23,18 @@
 
 (comment
   (play! "http://192.168.1.18:9876/file/1506389835.mp4/download")
+  (play! "https://bmo.squid.casa/file/big_buck_bunny_1080p.mp4/download")
   (play! "http://localhost:8000/1506389835.mp4")
+  (play! "https://bmo.squid.casa/download/1506389835.mp4?u=1KOU9Af0NN4tL09fHKTOSoYGQcsoy4GxjzJmszhGPni_slmOxiRtnA0kq8H77F8YAePBVrHVKYDhI9_ErSE9WA%3D%3D&stream=1&oauth_token=ZYNNRURI5GUBC3YBL727")
   (play! "https://s73-cdn77.put.io/download/1506389835.mp4?u=1KOU9Af0NN4tL09fHKTOSoYGQcsoy4GxjzJmszhGPni_slmOxiRtnA0kq8H77F8YAePBVrHVKYDhI9_ErSE9WA%3D%3D&stream=1&oauth_token=ZYNNRURI5GUBC3YBL727")
   (play! "http://192.168.1.40/file/Community%20(2009)%20Season%203%20S03%20%2B%20Extras%20(1080p%20BluRay%20x265%20HEVC%2010bit%20AAC%205.1%20RCVR)%2FCommunity%20(2009)%20-%20S03E06%20-%20Advanced%20Gay%20(1080p%20BluRay%20x265%20RCVR).mkv/download"))
 
 (comment
   (.setVolume dev 0.5)
-  (.stop dev)
-(.pause dev)
+  (.pause dev)
+  (def c (client))
+  (.stop (first (.-devices c)))
+  (.setVolume (first (.-devices c)) 0)
 
   (do
     (.on dev "status" (fn [status]
